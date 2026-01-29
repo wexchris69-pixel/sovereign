@@ -3,39 +3,49 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sovereign Core</title>
+    <title>Sovereign Core v2</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background-color: #000; color: white; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
-        .card-ui { background: linear-gradient(145deg, #222, #000); border: 1px solid #444; border-radius: 20px; padding: 20px; }
-        .neon-glow { box-shadow: 0 0 15px rgba(59, 130, 246, 0.5); }
+        .card-ui { background: linear-gradient(145deg, #1e3a8a, #000); border: 1px solid #3b82f6; border-radius: 20px; padding: 20px; }
+        .history-item { border-bottom: 1px solid #222; padding: 12px 0; }
     </style>
 </head>
 <body class="p-6 flex flex-col min-h-screen">
 
-    <div class="flex justify-between items-center mb-8">
-        <h1 class="text-2xl font-black italic text-blue-500">SOVEREIGN</h1>
-        <div class="bg-green-500/10 border border-green-500/50 px-3 py-1 rounded-full text-[10px] text-green-500 font-bold">● LIVE</div>
+    <div class="flex justify-between items-center mb-6">
+        <h1 class="text-xl font-black italic text-blue-500">SOVEREIGN CORE</h1>
+        <div class="bg-blue-500/10 border border-blue-500/50 px-3 py-1 rounded-full text-[10px] text-blue-500 font-bold">ACTIVE</div>
     </div>
 
-    <div class="bg-white/5 p-8 rounded-[35px] border border-white/10 text-center mb-6">
-        <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-2">Verfügbares Kapital</p>
-        <div id="balance" class="text-5xl font-mono font-bold">0.00 €</div>
+    <div class="bg-white/5 p-6 rounded-[30px] border border-white/10 text-center mb-6">
+        <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Guthaben</p>
+        <div id="balance" class="text-4xl font-mono font-bold text-white">0.00 €</div>
     </div>
 
-    <div class="card-ui neon-glow mb-6 relative overflow-hidden">
-        <div class="flex justify-between items-start mb-8">
-            <div class="text-[10px] font-bold text-blue-400 uppercase">Sovereign Card</div>
-            <svg class="h-8" viewBox="0 0 48 48" fill="none"><path d="M15 12h18m-18 8h18" stroke="currentColor" stroke-width="4"/></svg>
+    <div class="card-ui shadow-2xl shadow-blue-500/20 mb-6">
+        <div class="flex justify-between items-start mb-10">
+            <div class="text-[10px] font-bold text-blue-300">PREPAID DEBIT</div>
+            <div class="w-8 h-6 bg-yellow-500/20 rounded-md border border-yellow-500/50"></div>
         </div>
-        <div id="card-amount" class="text-2xl font-mono mb-4 text-white/90">0.00 €</div>
-        <div class="text-[10px] font-mono text-gray-500">WEX CHRIS 69</div>
-        <div class="absolute -right-4 -bottom-4 w-24 h-24 bg-blue-600/10 rounded-full blur-2xl"></div>
+        <div id="card-amount" class="text-3xl font-mono mb-6">0.00 €</div>
+        <div class="flex justify-between items-end">
+            <div class="text-[12px] font-mono text-gray-400">WEX CHRIS 69</div>
+            <div class="text-[10px] text-gray-500 font-mono italic">VALID 12/28</div>
+        </div>
     </div>
 
-    <button onclick="harvest()" class="w-full bg-blue-600 py-5 rounded-2xl font-bold text-lg active:scale-95 transition-all mb-4">GELD ERNTEN</button>
-    <button onclick="payout()" class="w-full bg-white text-black py-5 rounded-2xl font-bold text-lg active:scale-95 transition-all">AUF KARTE LADEN</button>
+    <div class="grid grid-cols-2 gap-4 mb-8">
+        <button onclick="harvest()" class="bg-blue-600 py-4 rounded-2xl font-bold active:scale-95 transition-all text-sm">HARVEST</button>
+        <button onclick="payout()" class="bg-white text-black py-4 rounded-2xl font-bold active:scale-95 transition-all text-sm">AUF KARTE</button>
+    </div>
+
+    <div class="flex-grow">
+        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Letzte Aktivitäten</h2>
+        <div id="history" class="text-sm">
+            </div>
+    </div>
 
     <script>
         const S_URL = "https://ddnwxlbtfjtevgnoflit.supabase.co";
@@ -45,18 +55,30 @@
         let walletBalance = 0;
         let cardBalance = 0;
 
+        function addHistory(text, amount, type) {
+            const history = document.getElementById('history');
+            const item = document.createElement('div');
+            item.className = 'history-item flex justify-between';
+            const color = type === 'plus' ? 'text-green-500' : 'text-blue-400';
+            item.innerHTML = `<span>${text}</span><span class="${color}">${type==='plus'?'+':'-'} ${amount.toFixed(2)} €</span>`;
+            history.prepend(item);
+        }
+
         async function harvest() {
             walletBalance += 0.50;
             updateUI();
+            addHistory('Hardware Ernte', 0.50, 'plus');
             await _supabase.from('resource_harvests').insert([{ amount_credits: 0.50, resource_type: 'Harvest' }]);
         }
 
         function payout() {
             if(walletBalance > 0) {
-                cardBalance += walletBalance;
+                const amount = walletBalance;
+                cardBalance += amount;
                 walletBalance = 0;
                 updateUI();
-                alert("Auszahlung erfolgreich! Das Geld ist auf deiner Karte.");
+                addHistory('Übertrag auf Karte', amount, 'minus');
+                alert("Erfolgreich übertragen!");
             }
         }
 
