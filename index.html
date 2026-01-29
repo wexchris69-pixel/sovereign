@@ -3,48 +3,41 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Sovereign Core v2</title>
+    <title>Sovereign Admin</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body { background-color: #000; color: white; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
         .card-ui { background: linear-gradient(145deg, #1e3a8a, #000); border: 1px solid #3b82f6; border-radius: 20px; padding: 20px; }
-        .history-item { border-bottom: 1px solid #222; padding: 12px 0; }
+        .log-entry { background: rgba(255,255,255,0.03); border-left: 3px solid #3b82f6; margin-bottom: 8px; padding: 10px; border-radius: 0 10px 10px 0; }
     </style>
 </head>
 <body class="p-6 flex flex-col min-h-screen">
 
     <div class="flex justify-between items-center mb-6">
-        <h1 class="text-xl font-black italic text-blue-500">SOVEREIGN CORE</h1>
-        <div class="bg-blue-500/10 border border-blue-500/50 px-3 py-1 rounded-full text-[10px] text-blue-500 font-bold">ACTIVE</div>
+        <h1 class="text-xl font-black italic text-blue-500">SOVEREIGN ADMIN</h1>
+        <button onclick="fetchGlobalHistory()" class="text-[10px] bg-blue-500/20 px-3 py-1 rounded-full text-blue-400 font-bold font-mono">REFRESH LIVE</button>
     </div>
 
-    <div class="bg-white/5 p-6 rounded-[30px] border border-white/10 text-center mb-6">
-        <p class="text-[10px] text-gray-500 uppercase tracking-widest mb-1">Guthaben</p>
-        <div id="balance" class="text-4xl font-mono font-bold text-white">0.00 €</div>
+    <div class="mb-4">
+        <input type="text" id="testerName" class="w-full bg-white/5 border border-white/10 rounded-xl p-3 text-center text-sm" placeholder="Dein Name (für die Liste)">
     </div>
 
     <div class="card-ui shadow-2xl shadow-blue-500/20 mb-6">
-        <div class="flex justify-between items-start mb-10">
-            <div class="text-[10px] font-bold text-blue-300">PREPAID DEBIT</div>
-            <div class="w-8 h-6 bg-yellow-500/20 rounded-md border border-yellow-500/50"></div>
-        </div>
-        <div id="card-amount" class="text-3xl font-mono mb-6">0.00 €</div>
-        <div class="flex justify-between items-end">
-            <div class="text-[12px] font-mono text-gray-400">WEX CHRIS 69</div>
-            <div class="text-[10px] text-gray-500 font-mono italic">VALID 12/28</div>
-        </div>
+        <div id="card-amount" class="text-4xl font-mono mb-2 text-center">0.00 €</div>
+        <p class="text-[10px] text-blue-300 text-center uppercase tracking-widest">Sovereign Card Balance</p>
     </div>
 
-    <div class="grid grid-cols-2 gap-4 mb-8">
-        <button onclick="harvest()" class="bg-blue-600 py-4 rounded-2xl font-bold active:scale-95 transition-all text-sm">HARVEST</button>
-        <button onclick="payout()" class="bg-white text-black py-4 rounded-2xl font-bold active:scale-95 transition-all text-sm">AUF KARTE</button>
-    </div>
+    <button onclick="harvest()" class="w-full bg-blue-600 py-4 rounded-2xl font-bold active:scale-95 transition-all text-sm mb-8">JETZT ERNTEN (+0.50 €)</button>
 
     <div class="flex-grow">
-        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4">Letzte Aktivitäten</h2>
-        <div id="history" class="text-sm">
-            </div>
+        <h2 class="text-xs font-bold text-gray-500 uppercase tracking-widest mb-4 flex justify-between">
+            <span>Live Ernte-Logbuch</span>
+            <span class="text-blue-500">Global</span>
+        </h2>
+        <div id="global-history" class="space-y-2">
+            <p class="text-gray-600 text-xs italic">Lade Daten...</p>
+        </div>
     </div>
 
     <script>
@@ -52,40 +45,54 @@
         const S_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRkbnd4bGJ0Zmp0ZXZnbm9mbGl0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDY0MjExMjMsImV4cCI6MjAyMjAwMTEyM30.O7R0F9l0E_r-V1A4K6z_lA4S3S4U8V7-G6-X6-G6-G6";
         const _supabase = supabase.createClient(S_URL, S_KEY);
         
-        let walletBalance = 0;
         let cardBalance = 0;
 
-        function addHistory(text, amount, type) {
-            const history = document.getElementById('history');
-            const item = document.createElement('div');
-            item.className = 'history-item flex justify-between';
-            const color = type === 'plus' ? 'text-green-500' : 'text-blue-400';
-            item.innerHTML = `<span>${text}</span><span class="${color}">${type==='plus'?'+':'-'} ${amount.toFixed(2)} €</span>`;
-            history.prepend(item);
-        }
-
         async function harvest() {
-            walletBalance += 0.50;
-            updateUI();
-            addHistory('Hardware Ernte', 0.50, 'plus');
-            await _supabase.from('resource_harvests').insert([{ amount_credits: 0.50, resource_type: 'Harvest' }]);
+            const name = document.getElementById('testerName').value || 'Anonym';
+            cardBalance += 0.50;
+            document.getElementById('card-amount').innerText = cardBalance.toFixed(2) + " €";
+            
+            // In Datenbank speichern
+            await _supabase.from('resource_harvests').insert([{ 
+                amount_credits: 0.50, 
+                resource_type: 'Harvest',
+                tester_name: name 
+            }]);
+            
+            // Liste sofort aktualisieren
+            fetchGlobalHistory();
         }
 
-        function payout() {
-            if(walletBalance > 0) {
-                const amount = walletBalance;
-                cardBalance += amount;
-                walletBalance = 0;
-                updateUI();
-                addHistory('Übertrag auf Karte', amount, 'minus');
-                alert("Erfolgreich übertragen!");
+        async function fetchGlobalHistory() {
+            const { data, error } = await _supabase
+                .from('resource_harvests')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            if (data) {
+                const historyDiv = document.getElementById('global-history');
+                historyDiv.innerHTML = '';
+                data.forEach(entry => {
+                    const time = new Date(entry.created_at).toLocaleTimeString('de-DE', {hour: '2-digit', minute:'2-digit'});
+                    const div = document.createElement('div');
+                    div.className = 'log-entry flex justify-between items-center';
+                    div.innerHTML = `
+                        <div>
+                            <p class="font-bold text-white text-sm">${entry.tester_name || 'Anonym'}</p>
+                            <p class="text-[10px] text-gray-500">${time} Uhr</p>
+                        </div>
+                        <div class="text-blue-400 font-mono font-bold">+${entry.amount_credits.toFixed(2)} €</div>
+                    `;
+                    historyDiv.appendChild(div);
+                });
             }
         }
 
-        function updateUI() {
-            document.getElementById('balance').innerText = walletBalance.toFixed(2) + " €";
-            document.getElementById('card-amount').innerText = cardBalance.toFixed(2) + " €";
-        }
+        // Beim Start einmal laden
+        fetchGlobalHistory();
+        // Alle 30 Sekunden automatisch prüfen
+        setInterval(fetchGlobalHistory, 30000);
     </script>
 </body>
 </html>
